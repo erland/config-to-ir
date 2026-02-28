@@ -40,3 +40,16 @@ See `docs/` for:
 - Step 4: Entity rule engine (build fact-graph entities)
 - Step 5: Relationship rule engine (build fact-graph relations)
 - Step 6: Map fact graph to IR v2 + validate against schema
+
+
+## Reports (Step 7)
+You can optionally write a diagnostics report:
+
+```bash
+node dist/cli.js --config examples/config.yml --root . --out out/model.ir.json --report out/report.json --reportFormat json
+node dist/cli.js --config examples/config.yml --root . --out out/model.ir.json --report out/report.txt --reportFormat text
+```
+
+Exit codes:
+- `0` success (no errors; warnings allowed unless `--strict`)
+- `2` if any errors, or if `--strict` and warnings exist

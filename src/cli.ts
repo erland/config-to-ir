@@ -10,12 +10,15 @@ import { buildEntities } from "./engine/buildEntities";
 import { buildRelations } from "./engine/buildRelations";
 import { mapFactGraphToIrV2 } from "./ir/mapToIr";
 import { validateIrAgainstSchema } from "./ir/validateIr";
+import { buildRunSummary, formatHumanReport } from "./report/report";
 
 type Args = {
   root: string;
   config: string;
   out: string;
   schema: string;
+  report?: string;
+  reportFormat: "json" | "text";
   strict: boolean;
 };
 
@@ -37,6 +40,16 @@ async function main() {
       type: "string",
       describe: "Path to YAML config file.",
       demandOption: true,
+    })
+    .option("report", {
+      type: "string",
+      describe: "Optional path to write a diagnostics report (json or text).",
+    })
+    .option("reportFormat", {
+      type: "string",
+      choices: ["json", "text"],
+      default: "json",
+      describe: "Report output format when --report is used.",
     })
     .option("schema", {
       type: "string",
@@ -86,6 +99,17 @@ function countDiagnostics(diags: { severity: string }[]) {
 
   const allDiagnostics = [...entityResult.diagnostics, ...relationResult.diagnostics];
 
+  const summaryObj = buildRunSummary({
+    scannedRoot: path.resolve(argv.root),
+    fileCount: files.length,
+    entityCount: entityResult.entities.length,
+    relationCount: relationResult.relations.length,
+    entities: entityResult.entities,
+    relations: relationResult.relations,
+    diagnostics: allDiagnostics,
+    sampleLimit: 50,
+  });
+
 
   // Step 1: do not emit IR; write a small placeholder file to prove CI wiring.
   const outAbs = path.resolve(argv.out);
@@ -102,6 +126,17 @@ if (!schemaRes.ok) {
 }
 
 fs.writeFileSync(outAbs, JSON.stringify(ir, null, 2) + "\n", "utf-8");
+
+  if (argv.report) {
+    const reportAbs = path.resolve(argv.report);
+    ensureParentDir(reportAbs);
+    if (argv.reportFormat === "text") {
+      fs.writeFileSync(reportAbs, formatHumanReport(summaryObj), "utf-8");
+    } else {
+      fs.writeFileSync(reportAbs, JSON.stringify(summaryObj, null, 2) + "\n", "utf-8");
+    }
+    console.log(`Wrote report to: ${reportAbs}`);
+  }
 
 
   const placeholder = {
@@ -141,6 +176,13 @@ fs.writeFileSync(outAbs, JSON.stringify(ir, null, 2) + "\n", "utf-8");
   console.log(`Discovered entities: ${entityResult.entities.length}`);
   console.log(`Discovered relations: ${relationResult.relations.length}`);
   console.log(`Wrote IR to: ${outAbs}`);
+
+  if (summaryObj.errorCount > 0) {
+    process.exit(2);
+  }
+  if (argv.strict && summaryObj.warningCount > 0) {
+    process.exit(2);
+  }
 }
 
 main().catch((err) => {
