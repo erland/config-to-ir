@@ -39,3 +39,4 @@ See `docs/` for:
 
 - Step 4: Entity rule engine (build fact-graph entities)
 - Step 5: Relationship rule engine (build fact-graph relations)
+- Step 6: Map fact graph to IR v2 + validate against schema

@@ -8,11 +8,14 @@ import { summarizeConfig } from "./config/summarizeConfig";
 import { discoverFiles } from "./io/discoverFiles";
 import { buildEntities } from "./engine/buildEntities";
 import { buildRelations } from "./engine/buildRelations";
+import { mapFactGraphToIrV2 } from "./ir/mapToIr";
+import { validateIrAgainstSchema } from "./ir/validateIr";
 
 type Args = {
   root: string;
   config: string;
   out: string;
+  schema: string;
   strict: boolean;
 };
 
@@ -34,6 +37,11 @@ async function main() {
       type: "string",
       describe: "Path to YAML config file.",
       demandOption: true,
+    })
+    .option("schema", {
+      type: "string",
+      describe: "Path to IR v2 JSON schema for validation.",
+      default: "docs/schemas/ir/ir-schema-v2.json",
     })
     .option("out", {
       type: "string",
@@ -82,6 +90,19 @@ function countDiagnostics(diags: { severity: string }[]) {
   // Step 1: do not emit IR; write a small placeholder file to prove CI wiring.
   const outAbs = path.resolve(argv.out);
   ensureParentDir(outAbs);
+const ir = mapFactGraphToIrV2({
+  entities: entityResult.entities,
+  relations: relationResult.relations,
+});
+
+const schemaRes = validateIrAgainstSchema(ir, argv.schema);
+if (!schemaRes.ok) {
+  const msg = schemaRes.errors.map(e => `- ${e.instancePath || "<root>"}: ${e.message}`).join("\n");
+  throw new Error(`IR schema validation failed:\n${msg}`);
+}
+
+fs.writeFileSync(outAbs, JSON.stringify(ir, null, 2) + "\n", "utf-8");
+
 
   const placeholder = {
     schemaVersion: "IR_V2",
@@ -119,7 +140,7 @@ function countDiagnostics(diags: { severity: string }[]) {
   console.log(`Discovered files: ${files.length}`);
   console.log(`Discovered entities: ${entityResult.entities.length}`);
   console.log(`Discovered relations: ${relationResult.relations.length}`);
-  console.log(`Wrote placeholder output to: ${outAbs}`);
+  console.log(`Wrote IR to: ${outAbs}`);
 }
 
 main().catch((err) => {
