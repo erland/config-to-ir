@@ -1,0 +1,1 @@
+/subsystem=messaging-activemq/server=default/jms-queue=Q.APP2:add

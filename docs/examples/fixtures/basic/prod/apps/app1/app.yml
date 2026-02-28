@@ -1,0 +1,2 @@
+elastic:
+  index: app1-index

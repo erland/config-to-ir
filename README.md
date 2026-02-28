@@ -53,3 +53,14 @@ node dist/cli.js --config examples/config.yml --root . --out out/model.ir.json -
 Exit codes:
 - `0` success (no errors; warnings allowed unless `--strict`)
 - `2` if any errors, or if `--strict` and warnings exist
+
+
+## Documentation
+- Config reference: `docs/config-reference.md`
+- Example config pack: `docs/examples/`
+
+Quick example:
+
+```bash
+node dist/cli.js --config docs/examples/example-basic.yml --root docs/examples/fixtures/basic --out out/example-basic.ir.json --report out/example-basic.report.json
+```

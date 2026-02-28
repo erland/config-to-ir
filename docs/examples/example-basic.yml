@@ -1,0 +1,78 @@
+version: 1
+
+inputs:
+  root: "."
+  include:
+    - "**/*.cli"
+    - "**/*.properties"
+    - "**/*.yml"
+    - "**/*.yaml"
+  exclude:
+    - "**/target/**"
+    - "**/.git/**"
+
+context:
+  fromPath:
+    # Examples of context from directory names
+    - name: env
+      regex: "/(dev|prod)/"
+    - name: app
+      regex: "/apps/([^/]+)/"
+
+entities:
+  # Example: JMS queue discovered in a JBoss CLI file
+  - type: JmsQueue
+    idTemplate: "jms:queue:${match.queue}:${ctx.env}"
+    nameTemplate: "${match.queue}"
+    classifierKind: "CLASS"
+    tags:
+      env: "${ctx.env}"
+      app: "${ctx.app}"
+    extract:
+      - type: regex
+        file: "**/*.cli"
+        pattern: "jms-queue=(?<queue>[^: \n]+)"
+
+  # Example: Oracle schema name in properties
+  - type: OracleSchema
+    idTemplate: "oracle:schema:${match.schema}:${ctx.env}"
+    nameTemplate: "${match.schema}"
+    classifierKind: "CLASS"
+    tags:
+      env: "${ctx.env}"
+      app: "${ctx.app}"
+    extract:
+      - type: properties
+        file: "**/*.properties"
+        keys: ["datasource.schema"]
+        captureName: "schema"
+
+  # Example: Elastic index name in YAML
+  - type: ElasticIndex
+    idTemplate: "elastic:index:${match.idx}:${ctx.env}"
+    nameTemplate: "${match.idx}"
+    classifierKind: "CLASS"
+    tags:
+      env: "${ctx.env}"
+      app: "${ctx.app}"
+    extract:
+      - type: yaml
+        file: "**/*.yml"
+        selectPath: "elastic.index"
+        captureName: "idx"
+
+relations:
+  # Example relation: app (oracle schema) depends on elastic index in same env+app
+  - name: schema_uses_index
+    kind: DEPENDENCY
+    from:
+      entityType: OracleSchema
+    to:
+      entityType: ElasticIndex
+      resolve:
+        by: id
+        template: "elastic:index:${from.tags.app}-index:${from.tags.env}"
+    constraints:
+      sameTags: ["env", "app"]
+    onUnresolved: warn
+    onAmbiguous: warn-pick-first
