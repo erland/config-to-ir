@@ -1,0 +1,13 @@
+version: 1
+inputs:
+  root: "."
+  include:
+    - "**/*.cli"
+  exclude:
+    - "**/.git/**"
+context:
+  fromPath:
+    - name: env
+      regex: "/(dev|prod)/"
+entities: []
+relations: []

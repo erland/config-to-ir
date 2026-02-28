@@ -1,0 +1,23 @@
+version: 1
+
+inputs:
+  root: "."
+  include:
+    - "**/*.cli"
+    - "**/*.properties"
+    - "**/*.yml"
+    - "**/*.yaml"
+  exclude:
+    - "**/target/**"
+    - "**/.git/**"
+
+context:
+  fromPath:
+    - name: env
+      regex: "/(dev|test|qa|prod)/"
+    - name: app
+      regex: "/apps/([^/]+)/"
+
+# Step 1 only validates top-level shape; later steps define rule schemas.
+entities: []
+relations: []
