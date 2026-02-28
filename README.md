@@ -31,3 +31,8 @@ Notes:
 See `docs/` for:
 - Functional specification
 - Development plan
+
+## Implemented steps
+- Step 1: CLI + config loader
+- Step 2: File discovery + path context extraction
+- Step 3: Extraction primitives (regex, properties, YAML)

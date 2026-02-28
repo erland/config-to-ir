@@ -1,0 +1,2 @@
+set a=b
+/subsystem=messaging-activemq/server=default/jms-queue=Q.TEST:read-resource
