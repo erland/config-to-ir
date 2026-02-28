@@ -1,0 +1,33 @@
+name: Snapshot (main)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run pack:dist
+
+      - name: Publish snapshot release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: snapshot
+          name: snapshot
+          make_latest: false
+          prerelease: true
+          files: out/config-to-ir.zip

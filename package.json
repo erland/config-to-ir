@@ -13,7 +13,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint .",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "pack:dist": "node scripts/pack-dist.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",

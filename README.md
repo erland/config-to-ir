@@ -64,3 +64,21 @@ Quick example:
 ```bash
 node dist/cli.js --config docs/examples/example-basic.yml --root docs/examples/fixtures/basic --out out/example-basic.ir.json --report out/example-basic.report.json
 ```
+
+
+## CI/CD (Snapshot + Releases)
+
+This repo publishes:
+- **Snapshot** build on every push to `main` (GitHub Release tag: `snapshot`, prerelease)
+- **Versioned releases** only when you push a tag like `v1.2.3` (GitHub Release `v1.2.3`, marked as latest)
+
+The build artifact is a zip containing:
+- `dist/` (compiled CLI)
+- `docs/` (including IR schema + example pack)
+- `BUILD_INFO.json` (commit SHA, ref, run id, build timestamp)
+
+### Create a versioned release
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
