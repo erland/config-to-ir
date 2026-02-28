@@ -5,6 +5,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { loadConfig, ConfigError } from "./config/loadConfig";
 import { summarizeConfig } from "./config/summarizeConfig";
+import { discoverFiles } from "./io/discoverFiles";
 
 type Args = {
   root: string;
@@ -48,6 +49,13 @@ async function main() {
   const { config, configPath } = loadConfig(argv.config);
   const summary = summarizeConfig(config);
 
+  const files = await discoverFiles({
+    rootDir: argv.root,
+    include: config.inputs.include,
+    exclude: config.inputs.exclude,
+    contextRules: config.context?.fromPath ?? [],
+  });
+
   // Step 1: do not emit IR; write a small placeholder file to prove CI wiring.
   const outAbs = path.resolve(argv.out);
   ensureParentDir(outAbs);
@@ -58,6 +66,10 @@ async function main() {
     configPath,
     scannedRoot: path.resolve(argv.root),
     generatedAt: new Date().toISOString(),
+    discoveredFiles: {
+      count: files.length,
+      sample: files.slice(0, 20).map(f => ({ relPath: f.relPath, context: f.context })),
+    },
   };
 
   fs.writeFileSync(outAbs, JSON.stringify(placeholder, null, 2) + "\n", "utf-8");
@@ -68,6 +80,7 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(summary);
   // eslint-disable-next-line no-console
+  console.log(`Discovered files: ${files.length}`);
   console.log(`Wrote placeholder output to: ${outAbs}`);
 }
 
