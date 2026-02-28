@@ -6,6 +6,7 @@ import { hideBin } from "yargs/helpers";
 import { loadConfig, ConfigError } from "./config/loadConfig";
 import { summarizeConfig } from "./config/summarizeConfig";
 import { discoverFiles } from "./io/discoverFiles";
+import { buildEntities } from "./engine/buildEntities";
 
 type Args = {
   root: string;
@@ -48,6 +49,20 @@ async function main() {
 
   const { config, configPath } = loadConfig(argv.config);
   const summary = summarizeConfig(config);
+function countByType(entities: { type: string }[]): Record<string, number> {
+  return entities.reduce<Record<string, number>>((acc, e) => {
+    acc[e.type] = (acc[e.type] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function countDiagnostics(diags: { severity: string }[]) {
+  return {
+    warningCount: diags.filter((d) => d.severity === "warning").length,
+    errorCount: diags.filter((d) => d.severity === "error").length,
+  };
+}
+
 
   const files = await discoverFiles({
     rootDir: argv.root,
@@ -55,6 +70,9 @@ async function main() {
     exclude: config.inputs.exclude,
     contextRules: config.context?.fromPath ?? [],
   });
+
+  const entityResult = await buildEntities(files, config.entities);
+
 
   // Step 1: do not emit IR; write a small placeholder file to prove CI wiring.
   const outAbs = path.resolve(argv.out);
@@ -70,6 +88,15 @@ async function main() {
       count: files.length,
       sample: files.slice(0, 20).map(f => ({ relPath: f.relPath, context: f.context })),
     },
+    discoveredEntities: {
+      count: entityResult.entities.length,
+      byType: countByType(entityResult.entities),
+    },
+    diagnostics: {
+      warningCount: countDiagnostics(entityResult.diagnostics).warningCount,
+      errorCount: countDiagnostics(entityResult.diagnostics).errorCount,
+      sample: entityResult.diagnostics.slice(0, 20),
+    },
   };
 
   fs.writeFileSync(outAbs, JSON.stringify(placeholder, null, 2) + "\n", "utf-8");
@@ -81,6 +108,7 @@ async function main() {
   console.log(summary);
   // eslint-disable-next-line no-console
   console.log(`Discovered files: ${files.length}`);
+  console.log(`Discovered entities: ${entityResult.entities.length}`);
   console.log(`Wrote placeholder output to: ${outAbs}`);
 }
 

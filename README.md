@@ -36,3 +36,5 @@ See `docs/` for:
 - Step 1: CLI + config loader
 - Step 2: File discovery + path context extraction
 - Step 3: Extraction primitives (regex, properties, YAML)
+
+- Step 4: Entity rule engine (build fact-graph entities)
