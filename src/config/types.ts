@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Minimal configuration schema for Steps 1-4.
+ * Minimal configuration schema for Steps 1-5.
  * Kept small and declarative; later steps can extend it.
  */
 export const PathContextRuleSchema = z.object({
@@ -112,7 +112,56 @@ export const EntityRuleSchema = z.object({
   merge: MergePolicySchema.optional(),
 });
 
-export const RelationRuleSchema = z.any(); // Step 5
+/**
+ * Step 5: relationship rules (fact-graph relations)
+ */
+
+export const RelationResolveSchema = z.discriminatedUnion("by", [
+  z.object({
+    by: z.literal("id"),
+    template: z.string().min(1),
+  }),
+  z.object({
+    by: z.literal("name"),
+    template: z.string().min(1),
+  }),
+  z.object({
+    by: z.literal("tag"),
+    tagKey: z.string().min(1),
+    template: z.string().min(1),
+  }),
+]);
+
+export const RelationConstraintsSchema = z
+  .object({
+    /**
+     * Require that the specified tags have equal values on both from/to entities.
+     * Example: ["env","app"]
+     */
+    sameTags: z.array(z.string().min(1)).default([]),
+  })
+  .default({ sameTags: [] });
+
+export const RelationRuleSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().min(1),
+  stereotypeId: z.string().optional(),
+  tags: z.record(z.string().min(1)).optional(),
+
+  from: z.object({
+    entityType: z.string().min(1),
+  }),
+
+  to: z.object({
+    entityType: z.string().min(1),
+    resolve: RelationResolveSchema,
+  }),
+
+  constraints: RelationConstraintsSchema.optional(),
+
+  onUnresolved: z.enum(["ignore", "warn", "error"]).default("warn"),
+  onAmbiguous: z.enum(["pick-first", "warn-pick-first", "error"]).default("warn-pick-first"),
+});
 
 export const ToolConfigSchema = z.object({
   version: z.number().int().positive(),
@@ -127,3 +176,5 @@ export const ToolConfigSchema = z.object({
 export type ToolConfig = z.infer<typeof ToolConfigSchema>;
 export type EntityRule = z.infer<typeof EntityRuleSchema>;
 export type EntityExtract = z.infer<typeof EntityExtractSchema>;
+export type RelationRule = z.infer<typeof RelationRuleSchema>;
+export type RelationResolve = z.infer<typeof RelationResolveSchema>;

@@ -10,6 +10,17 @@ export type FactEntity = {
   evidence: Evidence[];
 };
 
+export type FactRelation = {
+  id: string;
+  kind: string;
+  fromId: string;
+  toId: string;
+  stereotypeId?: string;
+  tags: Record<string, string>;
+  evidence: Evidence[];
+};
+
 export type FactGraph = {
   entities: FactEntity[];
+  relations: FactRelation[];
 };

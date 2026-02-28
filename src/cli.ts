@@ -7,6 +7,7 @@ import { loadConfig, ConfigError } from "./config/loadConfig";
 import { summarizeConfig } from "./config/summarizeConfig";
 import { discoverFiles } from "./io/discoverFiles";
 import { buildEntities } from "./engine/buildEntities";
+import { buildRelations } from "./engine/buildRelations";
 
 type Args = {
   root: string;
@@ -73,6 +74,10 @@ function countDiagnostics(diags: { severity: string }[]) {
 
   const entityResult = await buildEntities(files, config.entities);
 
+  const relationResult = buildRelations(entityResult.entities, config.relations);
+
+  const allDiagnostics = [...entityResult.diagnostics, ...relationResult.diagnostics];
+
 
   // Step 1: do not emit IR; write a small placeholder file to prove CI wiring.
   const outAbs = path.resolve(argv.out);
@@ -92,10 +97,14 @@ function countDiagnostics(diags: { severity: string }[]) {
       count: entityResult.entities.length,
       byType: countByType(entityResult.entities),
     },
+    discoveredRelations: {
+      count: relationResult.relations.length,
+      byKind: Object.fromEntries(Object.entries(relationResult.relations.reduce<Record<string, number>>((acc, r) => { acc[r.kind] = (acc[r.kind] ?? 0) + 1; return acc; }, {})).sort(([a],[b])=>a.localeCompare(b))),
+    },
     diagnostics: {
-      warningCount: countDiagnostics(entityResult.diagnostics).warningCount,
-      errorCount: countDiagnostics(entityResult.diagnostics).errorCount,
-      sample: entityResult.diagnostics.slice(0, 20),
+      warningCount: countDiagnostics(allDiagnostics).warningCount,
+      errorCount: countDiagnostics(allDiagnostics).errorCount,
+      sample: allDiagnostics.slice(0, 20),
     },
   };
 
@@ -109,6 +118,7 @@ function countDiagnostics(diags: { severity: string }[]) {
   // eslint-disable-next-line no-console
   console.log(`Discovered files: ${files.length}`);
   console.log(`Discovered entities: ${entityResult.entities.length}`);
+  console.log(`Discovered relations: ${relationResult.relations.length}`);
   console.log(`Wrote placeholder output to: ${outAbs}`);
 }
 
