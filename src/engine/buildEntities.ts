@@ -16,6 +16,18 @@ export type BuildEntitiesResult = {
 
 type FileContentCache = Map<string, string>;
 
+type GlobMatcher = (relPath: string) => boolean;
+
+function toErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
+}
+
 function readFileCached(cache: FileContentCache, absPath: string): string {
   const hit = cache.get(absPath);
   if (hit !== undefined) return hit;
@@ -24,9 +36,27 @@ function readFileCached(cache: FileContentCache, absPath: string): string {
   return content;
 }
 
-function matchesGlob(relPath: string, globPattern: string): boolean {
-  const isMatch = picomatch(globPattern, { dot: true });
-  return isMatch(relPath);
+function getGlobMatcher(cache: Map<string, GlobMatcher>, globPattern: string): GlobMatcher {
+  const hit = cache.get(globPattern);
+  if (hit) return hit;
+  const matcher = picomatch(globPattern, { dot: true }) as GlobMatcher;
+  cache.set(globPattern, matcher);
+  return matcher;
+}
+
+function getApplicableFiles(
+  discovered: DiscoveredFile[],
+  matcherCache: Map<string, GlobMatcher>,
+  applicableCache: Map<string, DiscoveredFile[]>,
+  globPattern: string,
+): DiscoveredFile[] {
+  const hit = applicableCache.get(globPattern);
+  if (hit) return hit;
+
+  const isMatch = getGlobMatcher(matcherCache, globPattern);
+  const files = discovered.filter((f) => isMatch(f.relPath));
+  applicableCache.set(globPattern, files);
+  return files;
 }
 
 function runExtract(ex: EntityExtract, filePathAbs: string, relPath: string, content: string) {
@@ -75,28 +105,32 @@ export async function buildEntities(
   const diagnostics: Diagnostic[] = [];
   const cache: FileContentCache = new Map();
 
+  // Cache glob compilation + applicable file sets since many rules reuse the same globs.
+  const matcherCache = new Map<string, GlobMatcher>();
+  const applicableFilesCache = new Map<string, DiscoveredFile[]>();
+
   const byId = new Map<string, FactEntity>();
 
   for (const rule of rules) {
     const merge = rule.merge ?? { tagMerge: "keep-first", warnOnNameMismatch: true };
 
     for (const ex of rule.extract) {
-      const applicableFiles = discovered.filter((f) => matchesGlob(f.relPath, ex.file));
+      const applicableFiles = getApplicableFiles(discovered, matcherCache, applicableFilesCache, ex.file);
 
       for (const file of applicableFiles) {
         let content: string;
         try {
           content = readFileCached(cache, file.absPath);
-        } catch (e: any) {
-          diagnostics.push(err(`Failed to read file: ${file.absPath}. ${e?.message ?? e}`, { filePath: file.absPath }));
+        } catch (e: unknown) {
+          diagnostics.push(err(`Failed to read file: ${file.absPath}. ${toErrorMessage(e)}`, { filePath: file.absPath }));
           continue;
         }
 
         let matches = [];
         try {
-          matches = runExtract(ex as any, file.absPath, file.relPath, content);
-        } catch (e: any) {
-          diagnostics.push(err(`Extractor failed for ${file.relPath}: ${e?.message ?? e}`, {
+          matches = runExtract(ex, file.absPath, file.relPath, content);
+        } catch (e: unknown) {
+          diagnostics.push(err(`Extractor failed for ${file.relPath}: ${toErrorMessage(e)}`, {
             filePath: file.absPath,
             ruleType: ex.type,
             entityType: rule.type,
